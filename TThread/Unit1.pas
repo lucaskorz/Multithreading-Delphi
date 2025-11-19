@@ -1,0 +1,155 @@
+unit Unit1;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Math, Threading, System.SyncObjs;
+
+type
+  // Thread responsável por animar 1 ProgressBar
+  TProgressThread = class(TThread)
+  private
+    FProgressbar: TProgressBar; // ProgressBar que a thread vai manipular
+    FIncrement: Integer; // Quantos pontos a barra avança por ciclo
+    FCriticalSection: TCriticalSection; // Proteção caso fosse necessário acesso concorrente
+  protected
+    procedure Execute; override; // Método principal da thread
+  public
+    constructor Create(AProgressbar: TProgressBar; AIncrement: Integer);
+    destructor Destroy; override;
+  end;
+
+  TForm1 = class(TForm)
+    ProgressBar1: TProgressBar;
+    ProgressBar2: TProgressBar;
+    ProgressBar3: TProgressBar;
+    ProgressBar4: TProgressBar;
+    Button1: TButton;
+    Button2: TButton;
+    Button3: TButton;
+    Button4: TButton;
+    Label1: TLabel;
+    procedure FormCreate(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
+  private
+    FactiveThreads: Integer; // Contador de threads ativas
+    procedure UpdateActiveThreadsLabel; // Atualiza o label com o número de threads
+    procedure ThreadTerminated; // Chamado quando uma thread termina
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+
+constructor TProgressThread.Create(AProgressbar: TProgressbar; AIncrement: Integer);
+begin
+  inherited Create(False); // False = já inicia executando a thread
+  FreeOnTerminate := True; // Thread se destrói sozinha após terminar
+  FProgressbar := AProgressbar; // Guarda qual progressbar será manipulada
+  FIncrement := AIncrement; // Guarda o incremento por ciclo
+  FCriticalSection := TCriticalSection.Create; // Cria seção crítica, útil para recursos compartilhados
+end;
+
+destructor TProgressThread.Destroy;
+begin
+  FCriticalSection.Free; // Libera seção crítica
+  inherited;
+end;
+
+procedure TProgressThread.Execute;
+begin
+  // Loop de execução da thread
+  while not Terminated do
+  begin
+    Sleep(500); // Simula trabalho. Evita travar a CPU e controla ritmo da animação
+
+    TThread.Synchronize(nil,
+      procedure
+      begin
+        // Código dentro de Synchronize roda NA THREAD PRINCIPAL (UI)
+        // Isso evita erro ao atualizar componentes visuais
+
+        if FProgressbar.Position < 100 then
+          // Aumenta o valor da barra com limite máximo
+          FProgressbar.Position := Min(FProgressbar.Position + FIncrement, 100)
+        else
+          // Encerra a thread quando atingir 100%
+          Terminate;
+      end);
+  end;
+
+  // Após sair do loop, avisa o formulário que a thread terminou
+  TForm1(Form1).ThreadTerminated;
+end;
+
+procedure TForm1.ThreadTerminated;
+begin
+  // Decrementa contador de threads ativas
+  Dec(FActiveThreads);
+  UpdateActiveThreadsLabel;
+
+  // Reabilita botões quando a progressbar correspondente atingir 100%
+  if ProgressBar1.Position >= 100 then
+    Button1.Enabled := True;
+  if ProgressBar2.Position >= 100 then
+    Button2.Enabled := True;
+  if ProgressBar3.Position >= 100 then
+    Button3.Enabled := True;
+  if ProgressBar4.Position >= 100 then
+    Button4.Enabled := True;
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+begin
+  ProgressBar1.Position := 0; // Reinicia progressbar
+  Button1.Enabled := False; // Evita iniciar thread duplicada
+  TProgressThread.Create(ProgressBar1, 10); // Cria e inicia a thread
+  Inc(FActiveThreads); // Incrementa contador
+  UpdateActiveThreadsLabel;
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+begin
+  ProgressBar2.Position := 0;
+  Button2.Enabled := False;
+  TProgressThread.Create(ProgressBar2, 10);
+  Inc(FActiveThreads);
+  UpdateActiveThreadsLabel;
+end;
+
+procedure TForm1.Button3Click(Sender: TObject);
+begin
+  ProgressBar3.Position := 0;
+  Button3.Enabled := False;
+  TProgressThread.Create(ProgressBar3, 10);
+  Inc(FActiveThreads);
+  UpdateActiveThreadsLabel;
+end;
+
+procedure TForm1.Button4Click(Sender: TObject);
+begin
+  ProgressBar4.Position := 0;
+  Button4.Enabled := False;
+  TProgressThread.Create(ProgressBar4, 10);
+  Inc(FActiveThreads);
+  UpdateActiveThreadsLabel;
+end;
+
+procedure TForm1.UpdateActiveThreadsLabel;
+begin
+  Label1.Caption := 'Active Threads: ' + IntToStr(FactiveThreads);
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  FactiveThreads := 0; // Zera contador ao abrir o form
+end;
+
+end.
