@@ -148,16 +148,6 @@ LNotas := LNotasFut.Value;
 
 ---
 
-# 6. Resumo
-
 TThread é ideal quando é preciso controle total sobre o ciclo de vida da thread.
 TTask é a forma mais prática e rápida para paralelismo simples.
 TTask.Future é a melhor opção para tarefas paralelas que retornam valores, como consultas em banco de dados ou cálculos independentes.
-
----
-
-Se quiser, posso gerar também:
-
-* Um arquivo separado com exemplos completos.
-* Diagramas explicando o fluxo de TThread vs TTask.
-* Uma versão avançada com cancelamento e timeout.
